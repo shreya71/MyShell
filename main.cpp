@@ -1,14 +1,17 @@
 using namespace std;
 #include <iostream>
+#include <cstdlib> // for getencv
 #include <string>
-#include <cstring> // For strtok
+#include <cstring> // For strtok, strcmp
 #include <sstream>
 #include <vector>
 #include <termios.h> // for raw mode(tcgetattr, tcsetattr, cfmakeraw)
-#include <unistd.h>  // access to POSIX opsys API (read, write, fork, exec...)
+#include <unistd.h>  // access to POSIX opsys API (read, write, fork, exec, chdir, getcwd...)
 #include <sys/wait.h>
 #include <fstream> // for ofstream
 #include <ctype.h> // for iscntrl
+#include <filesystem> // for path manipulation and validation
+#include <limits.h> //for PATH_MAX
 
 struct termios orig_termios;
 void disableRawMode()
@@ -25,10 +28,35 @@ void enableRawMode()
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
+void changeDirectory(const string &path) {
+    const char *targetPath;
+
+    if(path.empty() || path == "~") {
+        targetPath = getenv("HOME");
+    }
+    else {
+        targetPath = path.c_str(); // pointer to array of characters
+    }
+
+    if (chdir(targetPath) != 0)
+    {
+        perror("cd failed");
+        return;
+    }
+
+    char cwd[PATH_MAX];
+    if(getcwd(cwd, sizeof(cwd)) != nullptr){
+        cout << "Changed directory to: " << cwd << endl;
+    } else{
+        perror("getcwd() error");
+    }
+}
+
 int main()
 {
     enableRawMode();
     char c;
+    string path;
 
     // opening file for storing
     ofstream myfile;
@@ -59,7 +87,9 @@ int main()
                         cout << "Right Arrow Pressed\n";
                     else if (s[1] == 'D')
                         cout << "Left Arrow Pressed\n";
-                        break;
+                    else if (s[0] == 'b')
+                        cout << s[0] << s[1] << "\n";
+                    break;
                     // else
                     //     cout << s[1] << "\n";
                 }
@@ -92,6 +122,13 @@ int main()
 
             while (getline(myread, cmd))
                 cout << cmd << "\n";
+        }
+        else if (s.rfind("cd",0) == 0)
+        {
+            path = s.substr(2);
+            path.erase(0, path.find_first_not_of(" \t"));
+
+            changeDirectory(path);
         }
         else
         {
